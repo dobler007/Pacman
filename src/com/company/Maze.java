@@ -3,14 +3,14 @@ package com.company;
 import java.util.Random;
 
 public class Maze {
-    int width;
-    int height;
-    int[][] maze;
+    private final int width;
+    private final int height;
+    private final int[][] maze;
 
-    static final int WALL = 1;
-    static final int PACMAN = 2;
-    static final int EMPTY = 0;
-    static final int DOT = 3;
+    public static final int WALL = 1;
+    public static final int PACMAN = 2;
+    public static final int EMPTY = 0;
+    public static final int DOT = 3;
 
 
     public Maze(int width, int height) {
@@ -20,33 +20,33 @@ public class Maze {
     }
 
     public int[][] generateMaze() {
-        for (int x = 0; x < width; x++) {
-            for (int y = 0; y < height; y++) {
-                maze[y][x] = WALL;
+        for (int x = 0; x < this.width; x++) {
+            for (int y = 0; y < this.height; y++) {
+                this.maze[y][x] = WALL;
             }
         }
 
         Random random = new Random();
-        int startX = random.nextInt(width);
-        int startY = random.nextInt(height);
+        int startX = random.nextInt(this.width);
+        int startY = random.nextInt(this.height);
 
         generatePath(startX, startY);
         addRandomRoads();
-        return maze;
+        return this.maze;
     }
 
 
     private void addRandomRoads() {
         Random random = new Random();
-        int maxRoads = width * height / 14;
+        int maxRoads = this.width * this.height / 14;
         int roadsAdded = 0;
 
         while (roadsAdded < maxRoads) {
-            int randomX = random.nextInt(width);
-            int randomY = random.nextInt(height);
+            int randomX = random.nextInt(this.width);
+            int randomY = random.nextInt(this.height);
 
-            if (maze[randomY][randomX] == WALL) {
-                maze[randomY][randomX] = EMPTY;
+            if (this.maze[randomY][randomX] == WALL) {
+                this.maze[randomY][randomX] = EMPTY;
                 roadsAdded++;
             }
         }
@@ -69,7 +69,7 @@ public class Maze {
     }*/
 
     private void generatePath(int x, int y) {
-        maze[y][x] = EMPTY;
+        this.maze[y][x] = EMPTY;
 
         int[] directions = {1, 2, 3, 4};
         shuffleArray(directions);
@@ -79,26 +79,23 @@ public class Maze {
             int newY = y;
 
             switch (direction) {
-                case 1:
-                    newY -= 2;
-                    break;
-                case 2:
-                    newX += 2;
-                    break;
-                case 3:
-                    newY += 2;
-                    break;
-                case 4:
-                    newX -= 2;
-                    break;
+                case 1 -> newY -= 2;
+                case 2 -> newX += 2;
+                case 3 -> newY += 2;
+                case 4 -> newX -= 2;
             }
 
-            if (newX >= 0 && newX < width && newY >= 0 && newY < height && maze[newY][newX] == WALL) {
-                int wallX = x + (newX - x) / 2;
-                int wallY = y + (newY - y) / 2;
-                maze[newY][newX] = EMPTY;
-                maze[wallY][wallX] = EMPTY;
-                generatePath(newX, newY);
+            boolean isInsideBorder = (newX >= 0 && newX < width) && (newY >= 0 && newY < height);
+
+            if (isInsideBorder) {
+                boolean currentFieldIsWall = (maze[newY][newX] == WALL);
+                if (currentFieldIsWall) {
+                    int wallX = x + (newX - x) / 2;
+                    int wallY = y + (newY - y) / 2;
+                    this.maze[newY][newX] = EMPTY;
+                    this.maze[wallY][wallX] = EMPTY;
+                    this.generatePath(newX, newY);
+                }
             }
         }
     }

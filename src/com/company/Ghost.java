@@ -38,6 +38,6 @@ public class Ghost extends Creature {
     }
 
     public boolean isOnSameFieldAsPacman(GamePanel gamePanel) {
-        return (this.getX() == gamePanel.pacman.getX()) && (this.getY() == gamePanel.pacman.getY());
+        return (this.getX() == gamePanel.getPacman().getX()) && (this.getY() == gamePanel.getPacman().getY());
     }
 }

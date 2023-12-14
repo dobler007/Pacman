@@ -43,6 +43,6 @@ public class GameMenu extends JFrame {
             gamePanel.requestFocus();
         });
 
-        setFocusable(true);
+        this.setFocusable(true);
     }
 }
