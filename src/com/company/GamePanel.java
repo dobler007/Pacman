@@ -5,7 +5,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 
-
 import javax.swing.*;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -14,85 +13,95 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.util.List;
 import java.util.Random;
 
 
-
 public class GamePanel extends JPanel implements KeyListener {
+    static final int THREAD_SLEEP_TIME = 100;
     static final int BLOCK_SIZE = 24;
-    int numBlocksWidth;
-    int numBlocksHeight;
-    int[][] levelData;
-    int pacmanX;
-    int pacmanY;
-    int score;
-    boolean running;
-
-    private int ghost1X;
-    private int ghost1Y;
-    private int ghost2X;
-    private int ghost2Y;
-
+    private final int numBlocksWidth;
+    private final int numBlocksHeight;
+    private int[][] levelData;
+    private int score;
+    private boolean running;
+    private Pacman pacman;
+    private final List<Ghost> ghosts;
     private String nickname = "";
+    private boolean upPressed;
+    private boolean downPressed;
+    private boolean leftPressed;
+    private boolean rightPressed;
 
 
     public GamePanel(int numBlocksWidth, int numBlocksHeight) {
         this.numBlocksWidth = numBlocksWidth;
         this.numBlocksHeight = numBlocksHeight;
 
-        levelData = new int[numBlocksHeight][numBlocksWidth];
-        generateMaze();
-        initializePacmanPosition();
-        initializeScore();
+        this.levelData = new int[numBlocksHeight][numBlocksWidth];
+        this.generateMaze();
+        this.initializePacmanPosition();
+        this.score = 0;
 
         int panelWidth = numBlocksWidth * BLOCK_SIZE;
         int panelHeight = numBlocksHeight * BLOCK_SIZE;
-        setPreferredSize(new Dimension(panelWidth, panelHeight));
-        setBackground(Color.BLACK);
+        this.setPreferredSize(new Dimension(panelWidth, panelHeight));
+        this.setBackground(Color.BLACK);
 
-        setFocusable(true);
-        addKeyListener(this);
-        running = true;
-        Timer ghostTimer = new Timer(500, e -> moveGhostsRandomly());
-        ghostTimer.start();
+        this.setFocusable(true);
+        this.addKeyListener(this);
+        this.running = true;
+
+        int halfWidth = numBlocksWidth / 2;
+        int halfHeight = numBlocksHeight / 2;
+
+        this.pacman = new Pacman();
+        this.ghosts = List.of(new Ghost(halfWidth, halfHeight),
+                new Ghost(halfWidth - 1, halfHeight));
+
+        Thread movementThread = new Thread(new MovementThread(this));
+        movementThread.start();
+
+        Thread enemyThread = new Thread(new EnemyThread(this));
+        enemyThread.start();
+    }
+
+    public boolean isAbleToMove(int newX, int newY) {
+        boolean xInsideBorder = (newX >= 0 && newX < this.numBlocksWidth);
+        boolean yInsideBorder = (newY >= 0 && newY < this.numBlocksHeight);
+
+        if (xInsideBorder && yInsideBorder) {
+            return (this.levelData[newY][newX] != Maze.WALL);
+        }
+
+        return false;
     }
 
     private void generateMaze() {
-        Maze mazeGenerator = new Maze(numBlocksWidth, numBlocksHeight);
-        levelData = mazeGenerator.generateMaze();
-        addDotsToMaze();
-        levelData[0][0] = 0;
-        levelData[0][1] = 0;
-        levelData[1][0] = 0;
-        levelData[1][1] = 0;
+        Maze mazeGenerator = new Maze(this.numBlocksWidth, this.numBlocksHeight);
+        this.levelData = mazeGenerator.generateMaze();
+        this.addDotsToMaze();
+        this.levelData[0][0] = 0;
+        this.levelData[0][1] = 0;
+        this.levelData[1][0] = 0;
+        this.levelData[1][1] = 0;
     }
 
-
-
     private void initializePacmanPosition() {
-        for (int row = 0; row < numBlocksHeight; row++) {
-            for (int col = 0; col < numBlocksWidth; col++) {
-                if (levelData[row][col] == Maze.PACMAN) {
-                    pacmanX = col;
-                    pacmanY = row;
+        for (int row = 0; row < this.numBlocksHeight; row++) {
+            for (int col = 0; col < this.numBlocksWidth; col++) {
+                if (this.levelData[row][col] == Maze.PACMAN) {
+                    this.pacman.setX(col);
+                    this.pacman.setY(row);
                     return;
                 }
             }
         }
-
-        ghost1X = numBlocksWidth / 2;
-        ghost1Y = numBlocksHeight / 2;
-        ghost2X = numBlocksWidth / 2 - 1;
-        ghost2Y = numBlocksHeight / 2;
-    }
-
-    private void initializeScore() {
-        score = 0;
     }
 
     private void saveScoreToFile() {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter("score.txt", true))) {
-            String scoreData = nickname + ": " + score + "\n";
+            String scoreData = this.nickname + ": " + this.score + "\n";
             writer.write(scoreData);
         } catch (IOException e) {
             e.printStackTrace();
@@ -101,37 +110,22 @@ public class GamePanel extends JPanel implements KeyListener {
 
     public void addDotsToMaze() {
         Random random = new Random();
-        int maxDots = numBlocksWidth * numBlocksHeight / 10;
+        int maxDots = this.numBlocksWidth * this.numBlocksHeight / 10;
         int dotsAdded = 0;
 
         while (dotsAdded < maxDots) {
-            int randomX = random.nextInt(numBlocksWidth);
-            int randomY = random.nextInt(numBlocksHeight);
+            int randomX = random.nextInt(this.numBlocksWidth);
+            int randomY = random.nextInt(this.numBlocksHeight);
 
-            if (levelData[randomY][randomX] == Maze.EMPTY) {
-                levelData[randomY][randomX] = Maze.DOT;
+            if (this.levelData[randomY][randomX] == Maze.EMPTY) {
+                this.levelData[randomY][randomX] = Maze.DOT;
                 dotsAdded++;
             }
         }
     }
 
-    public void movePacman(int newX, int newY) {
-        if (newX >= 0 && newX < numBlocksWidth && newY >= 0 && newY < numBlocksHeight && levelData[newY][newX] != Maze.WALL) {
-            if (levelData[newY][newX] == Maze.DOT) {
-                score++;
-                levelData[newY][newX] = Maze.EMPTY;
-            }
-
-            levelData[pacmanY][pacmanX] = Maze.EMPTY;
-            pacmanX = newX;
-            pacmanY = newY;
-            levelData[pacmanY][pacmanX] = Maze.PACMAN;
-            repaint();
-        }
-    }
-
     private void drawScore(Graphics g) {
-        String scoreText = "Score: " + score;
+        String scoreText = "Score: " + this.score;
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 16));
         FontMetrics fontMetrics = g.getFontMetrics();
@@ -143,9 +137,9 @@ public class GamePanel extends JPanel implements KeyListener {
         g.setColor(Color.WHITE);
 
 
-        for (int row = 0; row < numBlocksHeight; row++) {
-            for (int col = 0; col < numBlocksWidth; col++) {
-                if (levelData[row][col] == Maze.DOT) {
+        for (int row = 0; row < this.numBlocksHeight; row++) {
+            for (int col = 0; col < this.numBlocksWidth; col++) {
+                if (this.levelData[row][col] == Maze.DOT) {
                     int dotX = col * BLOCK_SIZE + BLOCK_SIZE / 2 - 3;
                     int dotY = row * BLOCK_SIZE + BLOCK_SIZE / 2 - 3;
                     g.fillOval(dotX, dotY, 6, 6);
@@ -153,8 +147,8 @@ public class GamePanel extends JPanel implements KeyListener {
             }
         }
 
-        int pacmanXPixel = pacmanX * BLOCK_SIZE;
-        int pacmanYPixel = pacmanY * BLOCK_SIZE;
+        int pacmanXPixel = this.pacman.getX() * BLOCK_SIZE;
+        int pacmanYPixel = this.pacman.getY() * BLOCK_SIZE;
 
         //pacman
         g.setColor(Color.YELLOW);
@@ -162,91 +156,16 @@ public class GamePanel extends JPanel implements KeyListener {
     }
 
     private void drawGhosts(Graphics g) {
-
-        int ghost1XPixel = ghost1X * BLOCK_SIZE;
-        int ghost1YPixel = ghost1Y * BLOCK_SIZE;
-        g.setColor(Color.RED);
-        g.fillRect(ghost1XPixel, ghost1YPixel, BLOCK_SIZE, BLOCK_SIZE);
-
-        int ghost2XPixel = ghost2X * BLOCK_SIZE;
-        int ghost2YPixel = ghost2Y * BLOCK_SIZE;
-        g.setColor(Color.PINK);
-        g.fillRect(ghost2XPixel, ghost2YPixel, BLOCK_SIZE, BLOCK_SIZE);
+        this.ghosts.forEach(ghost -> ghost.draw(g, Color.RED, BLOCK_SIZE));
     }
-
-    private void moveGhostsRandomly() {
-
-        Random random = new Random();
-
-        // Ghost 1
-        int ghost1Direction = random.nextInt(4) + 1;
-        int ghost1NewX = ghost1X;
-        int ghost1NewY = ghost1Y;
-
-        switch (ghost1Direction) {
-            case 1:
-                ghost1NewY -= 1;
-                break;
-            case 2:
-                ghost1NewX += 1;
-                break;
-            case 3:
-                ghost1NewY += 1;
-                break;
-            case 4:
-                ghost1NewX -= 1;
-                break;
-        }
-
-        if (ghost1NewX >= 0 && ghost1NewX < numBlocksWidth && ghost1NewY >= 0 && ghost1NewY < numBlocksHeight
-                && levelData[ghost1NewY][ghost1NewX] != Maze.WALL) {
-            ghost1X = ghost1NewX;
-            ghost1Y = ghost1NewY;
-        }
-
-        // Ghost 2
-        int ghost2Direction = random.nextInt(4) + 1;
-        int ghost2NewX = ghost2X;
-        int ghost2NewY = ghost2Y;
-
-        switch (ghost2Direction) {
-            case 1:
-                ghost2NewY -= 1;
-                break;
-            case 2:
-                ghost2NewX += 1;
-                break;
-            case 3:
-                ghost2NewY += 1;
-                break;
-            case 4:
-                ghost2NewX -= 1;
-                break;
-        }
-
-        if (ghost2NewX >= 0 && ghost2NewX < numBlocksWidth && ghost2NewY >= 0 && ghost2NewY < numBlocksHeight
-                && levelData[ghost2NewY][ghost2NewX] != Maze.WALL) {
-            ghost2X = ghost2NewX;
-            ghost2Y = ghost2NewY;
-        }
-
-        if (pacmanX == ghost1X && pacmanY == ghost1Y || pacmanX == ghost2X && pacmanY == ghost2Y) {
-            JOptionPane.showMessageDialog(this, "Game Over", "Game Over", JOptionPane.INFORMATION_MESSAGE);
-
-        }
-
-        repaint();
-    }
-
-
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
 
-        for (int row = 0; row < numBlocksHeight; row++) {
-            for (int col = 0; col < numBlocksWidth; col++) {
-                int tile = levelData[row][col];
+        for (int row = 0; row < this.numBlocksHeight; row++) {
+            for (int col = 0; col < this.numBlocksWidth; col++) {
+                int tile = this.levelData[row][col];
                 int x = col * BLOCK_SIZE;
                 int y = row * BLOCK_SIZE;
 
@@ -262,20 +181,14 @@ public class GamePanel extends JPanel implements KeyListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
-            int keyCode = e.getKeyCode();
-            if (keyCode == KeyEvent.VK_UP) {
-                movePacman(pacmanX, pacmanY - 1);
-            } else if (keyCode == KeyEvent.VK_DOWN) {
-                movePacman(pacmanX, pacmanY + 1);
-            } else if (keyCode == KeyEvent.VK_LEFT) {
-                movePacman(pacmanX - 1, pacmanY);
-            } else if (keyCode == KeyEvent.VK_RIGHT) {
-                movePacman(pacmanX + 1, pacmanY);
-            }
-            if (pacmanX == ghost1X && pacmanY == ghost1Y || pacmanX == ghost2X && pacmanY == ghost2Y) {
-                running = false;
-                JOptionPane.showMessageDialog(this, "Game Over!");
-            }
+        int keyCode = e.getKeyCode();
+
+        switch (keyCode) {
+            case KeyEvent.VK_UP, KeyEvent.VK_W -> this.upPressed = true;
+            case KeyEvent.VK_DOWN, KeyEvent.VK_S -> this.downPressed = true;
+            case KeyEvent.VK_LEFT, KeyEvent.VK_A -> this.leftPressed = true;
+            case KeyEvent.VK_RIGHT, KeyEvent.VK_D -> this.rightPressed = true;
+        }
     }
 
     @Override
@@ -284,5 +197,97 @@ public class GamePanel extends JPanel implements KeyListener {
 
     @Override
     public void keyReleased(KeyEvent e) {
+        int keyCode = e.getKeyCode();
+
+        switch (keyCode) {
+            case KeyEvent.VK_UP, KeyEvent.VK_W -> this.upPressed = false;
+            case KeyEvent.VK_DOWN, KeyEvent.VK_S -> this.downPressed = false;
+            case KeyEvent.VK_LEFT, KeyEvent.VK_A -> this.leftPressed = false;
+            case KeyEvent.VK_RIGHT, KeyEvent.VK_D -> this.rightPressed = false;
+        }
+    }
+
+    public int getNumBlocksWidth() {
+        return this.numBlocksWidth;
+    }
+
+    public int getNumBlocksHeight() {
+        return this.numBlocksHeight;
+    }
+
+    public int[][] getLevelData() {
+        return this.levelData;
+    }
+
+    public int getScore() {
+        return this.score;
+    }
+
+    public boolean isRunning() {
+        return this.running;
+    }
+
+    public Pacman getPacman() {
+        return this.pacman;
+    }
+
+    public List<Ghost> getGhosts() {
+        return this.ghosts;
+    }
+
+    public String getNickname() {
+        return this.nickname;
+    }
+
+    public boolean isUpPressed() {
+        return this.upPressed;
+    }
+
+    public boolean isDownPressed() {
+        return this.downPressed;
+    }
+
+    public boolean isLeftPressed() {
+        return this.leftPressed;
+    }
+
+    public boolean isRightPressed() {
+        return this.rightPressed;
+    }
+
+    public void setLevelData(int firstIndex, int secondIndex, int value) {
+        this.levelData[firstIndex][secondIndex] = value;
+    }
+
+    public void setScore(int score) {
+        this.score = score;
+    }
+
+    public void setRunning(boolean running) {
+        this.running = running;
+    }
+
+    public void setPacman(Pacman pacman) {
+        this.pacman = pacman;
+    }
+
+    public void setNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void setUpPressed(boolean upPressed) {
+        this.upPressed = upPressed;
+    }
+
+    public void setDownPressed(boolean downPressed) {
+        this.downPressed = downPressed;
+    }
+
+    public void setLeftPressed(boolean leftPressed) {
+        this.leftPressed = leftPressed;
+    }
+
+    public void setRightPressed(boolean rightPressed) {
+        this.rightPressed = rightPressed;
     }
 }
