@@ -23,7 +23,10 @@ public class GameMenu extends JFrame {
         this.setVisible(true);
         this.getContentPane().setBackground(Color.BLUE);
 
-        exit.addActionListener((event) -> System.exit(0));
+        exit.addActionListener((event) -> {
+            ScoresSaveUtil.serializeScoreList();
+            System.exit(0);
+        });
 
         newGame.addActionListener((event) -> {
             int width = InputUtil.getCorrectInput(this, "Enter the width of the map:",

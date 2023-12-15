@@ -1,16 +1,7 @@
 package com.company;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-
-
 import javax.swing.*;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
+import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.util.List;
@@ -99,15 +90,6 @@ public class GamePanel extends JPanel implements KeyListener {
         }
     }
 
-    private void saveScoreToFile() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter("score.txt", true))) {
-            String scoreData = this.nickname + ": " + this.score + "\n";
-            writer.write(scoreData);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public void addDotsToMaze() {
         Random random = new Random();
         int maxDots = this.numBlocksWidth * this.numBlocksHeight / 10;
@@ -125,7 +107,7 @@ public class GamePanel extends JPanel implements KeyListener {
     }
 
     private void drawScore(Graphics g) {
-        String scoreText = "Score: " + this.score;
+        String scoreText = "com.company.Score: " + this.score;
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 16));
         FontMetrics fontMetrics = g.getFontMetrics();
